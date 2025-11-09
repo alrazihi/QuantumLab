@@ -1,4 +1,88 @@
-<VSCode.Cell language="markdown">
-# Quantum Lab Roadmap
-This document outlines the roadmap for the Quantum Lab projects and experiments.
+<VSCode.Cell id="cell-001" language="markdown">
+# Quantum Lab Roadmap — Overview
+This roadmap guides development of the Quantum Lab repository: educational notebooks, reproducible scripts, notes, and result artifacts. It is organized into short-term (0–3 months), mid-term (3–12 months), and long-term (>12 months) milestones, with responsibilities, success metrics, and next steps.
+</VSCode.Cell>
+<VSCode.Cell id="cell-002" language="markdown">
+## Short-term (0–3 months)
+- Stabilize core scripts and demos:
+  - Ensure all scripts use AerSimulator and are compatible with the installed qiskit/qiskit-aer version.
+  - Add simple CI checks (linting + smoke-run of unit demos).
+- Complete and polish these deliverables:
+  - scripts/quantum_coin_flip.py, bell_state.py, quantum_rng.py, quantum_dice.py, teleportation_demo.py, quantum_password_demo.py
+  - Notebooks: 01_basics_qubits.ipynb, 02_entanglement.ipynb, 03_grovers_algorithm.ipynb (intro-level).
+- Documentation & safety:
+  - README.md, DISCLAIMER.txt, LICENSE.txt (royalty clause appended if desired).
+  - Quick-start guide and dependency instructions.
+- Success criteria:
+  - All core scripts run locally on AerSimulator without ImportError on the target dev environment.
+  - README and DISCLAIMER present and concise.
+</VSCode.Cell>
+<VSCode.Cell id="cell-003" language="markdown">
+## Mid-term (3–12 months)
+- Expand content and reproducibility:
+  - Add more notebooks covering measurement error mitigation, noise modeling, and state tomography.
+  - Add small automated examples that generate and save plots in results/plots/.
+- Testing & examples:
+  - Add unit tests for deterministic components where feasible.
+  - Add example data files under results/data/ and scripts to reproduce them.
+- Educational materials:
+  - Add short, focused PDFs in notes/ for linear algebra refresher and quantum basics.
+  - Add in-notebook explanations for every demo.
+- Success criteria:
+  - Notebooks are runnable end-to-end (via nbsphinx or papermill for CI).
+  - Example plots/data produced and checked into results/.
+</VSCode.Cell>
+<VSCode.Cell id="cell-004" language="markdown">
+## Long-term (>12 months)
+- Research & experiments:
+  - Add modules for variational algorithms (VQE, QAOA) with toy problems.
+  - Add benchmarking against simple noise models; document findings.
+- Community & collaboration:
+  - Create CONTRIBUTING.md, code of conduct, and issue templates.
+  - Publish demo highlights (slides or short tutorials) and consider small workshops.
+- Licensing & governance:
+  - Formalize licensing and royalty process (contact details, licensing terms).
+- Success criteria:
+  - Clear contributor flow, basic community engagement, reproducible experiments with documented results.
+</VSCode.Cell>
+<VSCode.Cell id="cell-005" language="markdown">
+## Roadmap Deliverables (by component)
+- notebooks/: complete, annotated notebooks with learning objectives and runnable cells.
+- scripts/: clean, well-documented scripts with CLI where appropriate; consistent simulator API (AerSimulator).
+- notes/: short PDF references and quick concept summaries.
+- results/: reproducible plots and data; scripts to regenerate them.
+- docs/: README, quick-start, LICENSE, DISCLAIMER, CONTRIBUTING, and CHANGELOG.
+</VSCode.Cell>
+<VSCode.Cell id="cell-006" language="markdown">
+## Timeline & Milestones (example)
+- Weeks 0–4: Stabilize imports, convert scripts to AerSimulator, add README and DISCLAIMER, smoke-run demos.
+- Months 1–3: Complete notebooks 01–03 with explanatory text and runnable examples; generate baseline plots.
+- Months 3–6: Add mid-term notebooks and reproducibility scripts; basic CI to run demos.
+- Months 6–12: Expand research experiments, add tests and contributor docs.
+</VSCode.Cell>
+<VSCode.Cell id="cell-007" language="markdown">
+## Responsibilities & Workflow
+- Repo maintainer: overall review, license/royalty contacts, release coordination.
+- Content owners: assign a person for each major area (notebooks, scripts, notes, results) to maintain quality.
+- PR process: small focused PRs, include smoke-run logs for any new notebook or script.
+- CI: run linting and smoke-run demos; validate imports and simulator usage.
+</VSCode.Cell>
+<VSCode.Cell id="cell-008" language="markdown">
+## Success Metrics & Acceptance Criteria
+- All core demos run without import/runtime errors on the target environment.
+- Notebooks include clear learning objectives and runnable examples.
+- Reproducible example outputs stored in results/ with scripts to regenerate.
+- Documentation (README, DISCLAIMER, LICENSE) present and understandable.
+</VSCode.Cell>
+<VSCode.Cell id="cell-009" language="markdown">
+## Next Steps (immediate)
+1. Replace deprecated qiskit imports in all scripts with qiskit_aer.AerSimulator (verify locally).
+2. Add short CI job to run a subset of scripts/notebooks once on push.
+3. Populate README with quick-run commands and dependency list.
+4. Assign content owners and open issues for mid-term tasks.
+</VSCode.Cell>
+<VSCode.Cell id="cell-010" language="markdown">
+## Contacts & Notes
+- Repository maintainer: add name/email in README for licensing/royalty discussions.
+- Keep the roadmap updated as tasks complete; use Issues and Projects for tracking.
 </VSCode.Cell>
