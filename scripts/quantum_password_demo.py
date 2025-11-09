@@ -271,24 +271,29 @@ def toy_xor_decrypt_int_key(key_int, ciphertext_b64):
 # ----------------- Main interactive demo -----------------
 def main():
     print("=== Quantum Password Demo (educational, offline) ===")
-    print("This demo will: (1) generate a quantum-random password, (2) run a tiny Grover search to find it")
-    print("Grover demo is limited to n_qubits <= 4 (this script supports 1 or 2 qubits for oracle simplicity).")
-    print("Do NOT use this to attack any real systems. Only test on generated demo passwords.")
-    print()
+    print("This demo has four independent parts:")
+    print("  1) Generate a quantum-random password (bits, hex, ASCII)")
+    print("  2) Use Grover's algorithm to amplify the probability of measuring a chosen index in a tiny search space")
+    print("  3) Demonstrate Grover's quadratic speedup for key search in a toy XOR cipher (very small keyspace)")
+    print("  4) Classical encrypt/decrypt using quantum/random bits or password-derived key")
+    print("\nIMPORTANT: Grover's algorithm is probabilistic. For very small search spaces (1–2 qubits),")
+    print("the most-measured bitstring should match the target index, but sometimes it may not due to randomness.")
+    print("If Grover does not recover the correct key, try increasing the number of shots or rerunning the demo.")
+    print("All cryptography here is for educational purposes only and is NOT secure for real use.\n")
 
-    # 1) Generate quantum password
-    bit_len = 8  # small bit-length for demo; change upward if you only want rng, but Grover requires small target space
-    print(f"Generating a demo password using quantum randomness ({bit_len} bits)...")
+    # --- PART 1: Quantum password generation ---
+    bit_len = 8
+    print("[PART 1] Generating a quantum-random password...")
     pw = generate_quantum_password(bit_len=bit_len)
-    print("Generated (bits):", ''.join(str(b) for b in pw['bits']))
-    print("Hex representation:", pw['hex'])
-    print("ASCII (best-effort):", pw['ascii'])
-    print()
+    print(f"  Bits: {''.join(str(b) for b in pw['bits'])}")
+    print(f"  Hex: {pw['hex']}")
+    print(f"  ASCII (best-effort): {pw['ascii']}\n")
 
-    # 2) Grover demo settings
+    # --- PART 2: Grover search for a hidden index ---
+    print("[PART 2] Grover search demo (tiny search space)")
     while True:
         try:
-            nq = int(input("Choose number of qubits for Grover demo (1 or 2; recommended 2): ").strip() or "2")
+            nq = int(input("Choose number of qubits for Grover demo (1 or 2): ").strip() or "2")
         except Exception:
             nq = 2
         if nq in (1,2):
@@ -296,14 +301,9 @@ def main():
         print("Invalid choice; pick 1 or 2.")
     N = 2**nq
 
-    # Allow user to choose mapping to target index:
-    # - 'g': use first nq generated random bits (original behaviour)
-    # - 'c': enter a custom password string; map via SHA-256 -> integer -> index mod N (demo mapping)
-    # - 'i': enter index directly (0..N-1)
-    print()
-    print("Choose how to derive the hidden target index for Grover:")
-    print("  g - use generated bits (first {} bits)".format(nq))
-    print("  c - provide a custom password string (will be hashed -> index mod {})".format(N))
+    print("\nHow should Grover's target index be chosen?")
+    print("  g - use first {} generated bits (maps bits to integer index)".format(nq))
+    print("  c - provide a custom password string (hashed to index mod {})".format(N))
     print("  i - enter target index directly (0..{})".format(N-1))
     choice = input("Select (g/c/i) [g]: ").strip().lower() or "g"
 
@@ -318,47 +318,44 @@ def main():
             print("Invalid index.")
         mapping_info = f"Direct index chosen: {target_index}"
     elif choice == 'c':
-        custom = input("Enter custom password string (this will be hashed to an index): ")
-        # Map to index deterministically via SHA-256
+        custom = input("Enter custom password string (will be hashed to index): ")
         digest = hashlib.sha256(custom.encode('utf-8')).digest()
         int_val = int.from_bytes(digest, 'big')
         target_index = int_val % N
-        mapping_info = f"Custom password hashed to index {target_index} (mod {N}). Note: Grover searches the small index space, not the original string."
+        mapping_info = f"Custom password hashed to index {target_index} (mod {N}). Grover will search for this index."
     else:
-        # default/generate: map first nq bits of generated password
         target_bits = pw['bits'][:nq]
         target_index = int(''.join(str(b) for b in target_bits), 2)
         mapping_info = f"Using first {nq} generated bits {target_bits} -> index {target_index}"
 
-    print(mapping_info)
-    print("Running Grover (simulated locally) to find the index...")
+    print("\n[INFO] " + mapping_info)
+    print("Grover will amplify the probability of measuring this index in a quantum search.\n")
 
     counts, iterations, qc = grover_search_demo(n_qubits=nq, target_index=target_index, shots=2048)
-    print(f"Grover iterations used (r): {iterations}")
-    print("Measurement counts (most-probable state should be the target):", counts)
-    try:
-        best = max(counts.items(), key=lambda kv: kv[1])[0]
-        print(f"Most-measured bitstring: {best} (decimal {int(best,2)})")
-        if int(best,2) == target_index:
-            print("SUCCESS: Grover amplified the target state.")
-        else:
-            print("Result did not select target with highest probability (try rerunning or change shots).")
-    except Exception:
-        pass
+    print(f"Grover iterations used: {iterations}")
+    print(f"Measurement counts: {counts}")
+    best = max(counts.items(), key=lambda kv: kv[1])[0]
+    print(f"Most-measured bitstring: {best} (decimal {int(best,2)})")
+    if int(best,2) == target_index:
+        print("SUCCESS: Grover amplified the target state.")
+    else:
+        print("NOTE: Grover did not select the target with highest probability in this run.")
+        print("      This is expected sometimes due to quantum randomness. Try rerunning or increase shots.")
 
-    # --- New: Grover key-recovery toy demo (1-2 qubits) ---
-    if input("\nRun toy Grover key-recovery demo on a tiny XOR cipher? (y/N): ").strip().lower().startswith('y'):
-        # choose small n for keyspace
+    # --- PART 3: Toy Grover key-recovery demo ---
+    print("\n[PART 3] Toy Grover key-recovery demo (tiny XOR cipher)")
+    print("This part demonstrates how Grover's algorithm can be used to recover a secret key in a toy cipher with a very small keyspace.")
+    print("You will choose a key size (1 or 2 qubits), encrypt a short message, and Grover will search for the key.")
+    if input("Run Grover key-recovery demo on a toy XOR cipher? (y/N): ").strip().lower().startswith('y'):
         while True:
             try:
-                kn = int(input("Choose key qubits for toy Grover (1 or 2) [2]: ").strip() or "2")
+                kn = int(input("Choose key size for toy Grover (1 or 2 qubits): ").strip() or "2")
             except Exception:
                 kn = 2
             if kn in (1,2):
                 break
             print("Invalid choice; pick 1 or 2.")
         K = 2**kn
-        # pick key: either use previously mapped target_index (if it fits) or random
         use_prev = False
         if 0 <= target_index < K:
             use_prev = input(f"Use previously chosen target index {target_index} as key? (y/N): ").strip().lower().startswith('y')
@@ -366,43 +363,37 @@ def main():
             toy_key = target_index
         else:
             toy_key = random.randrange(0, K)
-        print(f"Toy secret key (int in [0..{K-1}]): {toy_key}")
+        print(f"Toy secret key (integer in [0..{K-1}]): {toy_key}")
 
-        # plaintext to encrypt (short)
         pt = input("Enter short plaintext to encrypt (default 'HELLO'): ").strip() or "HELLO"
         ct_b64 = toy_xor_encrypt_int_key(toy_key, pt)
-        print("Toy ciphertext (base64):", ct_b64)
+        print(f"Toy ciphertext (base64): {ct_b64}")
 
-        # Run Grover to recover the key (oracle = target key)
-        print("Running Grover to recover toy key...")
+        print("Running Grover to recover the toy key...")
         counts_k, iters_k, qc_k = grover_search_demo(n_qubits=kn, target_index=toy_key, shots=2048)
         recovered = max(counts_k.items(), key=lambda kv: kv[1])[0]
         rec_int = int(recovered, 2)
         print(f"Grover measurement counts: {counts_k}")
         print(f"Recovered key (most-measured): {recovered} -> int {rec_int}")
         if rec_int == toy_key:
-            print("Grover recovered the correct key.")
+            print("Grover successfully recovered the correct key!")
         else:
-            print("Grover did not recover the correct key in this run (try increasing shots or rerunning).")
+            print("Grover did NOT recover the correct key in this run (try increasing shots or rerunning).")
 
-        # Decrypt with recovered key and show result
         try:
             dec = toy_xor_decrypt_int_key(rec_int, ct_b64)
-            print("Decryption with recovered key ->", dec)
+            print(f"Decryption with recovered key: {dec}")
         except Exception as e:
             print("Decryption failed:", e)
-    # --- end Grover key-recovery demo ---
+        print("End of toy Grover key-recovery demo.\n")
 
-    # --- New: interactive encrypt / decrypt using the selected key ---
-    print()
-    use_key_from = "bits"  # by default use generated bits key
+    # --- PART 4: Classical encrypt/decrypt demo ---
+    print("[PART 4] Classical encrypt/decrypt demo (using quantum/random bits or password-derived key)")
+    print("This part lets you encrypt and decrypt messages using either the quantum-generated bits or a password-derived key.")
+    use_key_from = "bits"
     if choice == 'c':
-        # user provided custom password string earlier; offer choice to use that string as key
         use_key_from = input("Use (b)its-derived key or (p)assword-string key for encrypt/decrypt? [b]: ").strip().lower() or "b"
-        if use_key_from.startswith('p'):
-            key_mode = 'password'
-        else:
-            key_mode = 'bits'
+        key_mode = 'password' if use_key_from.startswith('p') else 'bits'
     else:
         key_mode = 'bits'
 
@@ -412,11 +403,10 @@ def main():
         if key_mode == 'password' and choice == 'c':
             ct = encrypt_with_password_str(custom, msg)
         else:
-            # use generated bits as key
-            key_bits = pw['bits'][:max(len(pw['bits']), 8)]  # ensure at least some bits
+            key_bits = pw['bits'][:max(len(pw['bits']), 8)]
             ct = encrypt_with_bits(key_bits, msg)
         last_cipher = ct
-        print("Ciphertext (base64):", ct)
+        print(f"Ciphertext (base64): {ct}")
 
     if input("Decrypt a ciphertext now? (y/N): ").strip().lower().startswith('y'):
         inp = input("Paste ciphertext (base64) [or press Enter to use the last ciphertext]: ").strip()
@@ -431,19 +421,17 @@ def main():
                 else:
                     key_bits = pw['bits'][:max(len(pw['bits']), 8)]
                     pt = decrypt_with_bits(key_bits, inp)
-                print("Decrypted plaintext:", pt)
+                print(f"Decrypted plaintext: {pt}")
             except Exception as e:
                 print("Decryption failed:", str(e))
-    # --- end encrypt/decrypt demo ---
 
-    # Optional: show circuit (text)
     print("\nGrover circuit (text):")
     try:
         print(qc.draw(output='text'))
     except Exception:
         print("(Could not render circuit text)")
 
-    print("\nDemo complete. Reminder: this is a toy demonstration for education. Do not misuse.")
+    print("\nDemo complete. Reminder: this is a toy demonstration for education. Grover search is probabilistic and works best for larger search spaces and more iterations. All crypto here is for learning only.")
 
 if __name__ == "__main__":
     main()
