@@ -1,32 +1,35 @@
+# quantum_dice.py
+import random
 from qiskit import QuantumCircuit
 from qiskit_aer import AerSimulator
+from collections import Counter
 
-# Create a Bell state circuit
-qc = QuantumCircuit(2, 2)
-qc.h(0)
-qc.cx(0, 1)
-qc.measure([0, 1], [0, 1])
-
-# Run on simulator
-sim = AerSimulator()
-result = sim.run(qc, shots=1000).result()
-
-# Get counts - should see {'00': ~500, '11': ~500}
-print(result.get_counts())
-
-def roll_die(sim):
+def roll_die_once():
+    sim = AerSimulator()
     qc = QuantumCircuit(3, 3)
-    qc.h([0, 1, 2])        # create uniform superposition over 0-7
-    qc.measure([0, 1, 2], [0, 1, 2])
+    # Put 3 qubits into superposition (0..7)
+    for i in range(3):
+        qc.h(i)
+    qc.measure([0,1,2], [0,1,2])
+    # use AerSimulator.run instead of execute/Aer backend
+    result = sim.run(qc, shots=1).result()
+    counts = result.get_counts()
+    measured = list(counts.keys())[0]  # e.g., '010'
+    val = int(measured, 2)
+    return val
+
+def roll_die():
+    # rejection sampling: keep rolling until value in 0..5
     while True:
-        result = sim.run(qc, shots=1).result()
-        counts = result.get_counts()
-        bitstr = next(iter(counts))  # e.g. '010'
-        value = int(bitstr, 2)
-        if value < 6:
-            return value + 1  # map 0-5 to 1-6
+        v = roll_die_once()
+        if v < 6:
+            return v + 1  # map 0->1, ..., 5->6
+
+def main():
+    n = 20
+    rolls = [roll_die() for _ in range(n)]
+    print("Dice rolls:", rolls)
+    print("Counts:", Counter(rolls))
 
 if __name__ == "__main__":
-    sim = AerSimulator()
-    rolls = [roll_die(sim) for _ in range(10)]
-    print("Die rolls:", rolls)
+    main()
