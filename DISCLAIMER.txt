@@ -1,0 +1,25 @@
+DISCLAIMER
+
+This repository is provided for educational and research purposes only. The author(s) and maintainers
+make no warranties, express or implied, about the accuracy, completeness, or fitness for any particular
+purpose of the materials contained herein.
+
+Use of the code and materials is at your own risk. The author(s) and maintainers accept no responsibility
+or liability for any damage, loss, or legal consequences arising from the use or misuse of this repository,
+including but not limited to misuse against systems you do not own or have explicit permission to test.
+
+By using this repository you agree to:
+- Use the code only for lawful, ethical, and permitted activities.
+- Not attempt to access, harm, or otherwise interfere with systems, data, or networks you do not own.
+- Comply with all applicable laws, regulations, and policies.
+
+If in doubt, seek permission before testing or deploying any code outside of isolated, controlled environments.
+
+ROYALTY CLAUSE
+
+Any revenue or commercial income generated directly from the use, redistribution, sale, licensing,
+or other commercial exploitation of this code (or substantial portions thereof) is subject to a
+royalty of 10% (ten percent) payable to the repository owner/author. It is the user's responsibility
+to contact the repository owner/author to arrange payment and any necessary commercial license.
+The author(s) and maintainers make no representations about how royalties are handled or enforced
+and accept no liability related to royalty arrangements.

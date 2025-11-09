@@ -1,0 +1,18 @@
+Royalty License v1.0
+
+Permission is granted to use, copy, modify, and distribute this software for non-commercial,
+educational, and research purposes without payment, provided the above DISCLAIMER is respected.
+
+Commercial Use and Royalty:
+- Any commercial use, redistribution for profit, integration into a paid product, or other
+  activity that generates revenue from this code (or substantial portions of it) requires payment
+  of a royalty equal to 10% (ten percent) of the gross revenue derived from such use.
+- Users wishing to use this code commercially must contact the repository owner/author to obtain
+  a commercial license and arrange royalty payment before deploying or distributing commercially.
+
+No Warranty:
+The software is provided "as is", without warranty of any kind. The author(s) and maintainers
+are not liable for any claims, damages, or other liabilities arising from the use of the software.
+
+Contact:
+Provide contact details in the repository or README to arrange licensing/royalty discussions.
