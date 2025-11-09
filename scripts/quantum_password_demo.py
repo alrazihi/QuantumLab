@@ -20,6 +20,8 @@ import math
 import random
 import sys
 import numpy as np
+import hashlib  # Added: map arbitrary password -> index via SHA-256
+import base64  # NEW: encode/decode ciphertext
 from qiskit import QuantumCircuit
 from qiskit_aer import AerSimulator  # use AerSimulator for local simulation
 from qiskit.quantum_info import Statevector
@@ -194,6 +196,78 @@ def grover_search_demo(n_qubits=2, target_index=0, shots=1024):
     counts = result.get_counts()
     return counts, r, qc
 
+# --- New: simple key derivation and XOR-based encrypt/decrypt (educational only) ---
+def key_from_bits(bits):
+    """Derive 32-byte key from a list of bits using SHA-256 (educational/demo only)."""
+    bitstr = ''.join(str(int(b)) for b in bits)
+    return hashlib.sha256(bitstr.encode('utf-8')).digest()
+
+def key_from_password_str(pw_str):
+    """Derive 32-byte key from an arbitrary password string using SHA-256."""
+    return hashlib.sha256(pw_str.encode('utf-8')).digest()
+
+def xor_stream(data_bytes, key_bytes):
+    """XOR data_bytes with repeated key_bytes stream."""
+    out = bytearray(len(data_bytes))
+    klen = len(key_bytes)
+    for i, b in enumerate(data_bytes):
+        out[i] = b ^ key_bytes[i % klen]
+    return bytes(out)
+
+def encrypt_with_bits(bits, plaintext):
+    """Encrypt plaintext (str) using bits-derived key; return base64 ciphertext str."""
+    key = key_from_bits(bits)
+    pt = plaintext.encode('utf-8')
+    ct = xor_stream(pt, key)
+    return base64.b64encode(ct).decode('ascii')
+
+def decrypt_with_bits(bits, ciphertext_b64):
+    """Decrypt base64 ciphertext string using bits-derived key; return plaintext str."""
+    try:
+        ct = base64.b64decode(ciphertext_b64)
+    except Exception:
+        raise ValueError("Invalid base64 ciphertext")
+    key = key_from_bits(bits)
+    pt = xor_stream(ct, key)
+    try:
+        return pt.decode('utf-8', errors='strict')
+    except Exception:
+        # return best-effort
+        return pt.decode('utf-8', errors='replace')
+
+def encrypt_with_password_str(pw_str, plaintext):
+    key = key_from_password_str(pw_str)
+    ct = xor_stream(plaintext.encode('utf-8'), key)
+    return base64.b64encode(ct).decode('ascii')
+
+def decrypt_with_password_str(pw_str, ciphertext_b64):
+    ct = base64.b64decode(ciphertext_b64)
+    key = key_from_password_str(pw_str)
+    pt = xor_stream(ct, key)
+    try:
+        return pt.decode('utf-8', errors='strict')
+    except Exception:
+        return pt.decode('utf-8', errors='replace')
+# --- end new helpers ---
+
+# --- New: toy XOR encrypt/decrypt using integer key (small keyspace) ---
+def toy_xor_encrypt_int_key(key_int, plaintext):
+    """Encrypt plaintext (str) with a single-byte integer key; return base64 ciphertext."""
+    key_byte = bytes([key_int & 0xFF])
+    ct = xor_stream(plaintext.encode('utf-8'), key_byte)
+    return base64.b64encode(ct).decode('ascii')
+
+def toy_xor_decrypt_int_key(key_int, ciphertext_b64):
+    """Decrypt base64 ciphertext using single-byte integer key; return plaintext."""
+    ct = base64.b64decode(ciphertext_b64)
+    key_byte = bytes([key_int & 0xFF])
+    pt = xor_stream(ct, key_byte)
+    try:
+        return pt.decode('utf-8', errors='strict')
+    except Exception:
+        return pt.decode('utf-8', errors='replace')
+# --- end new helpers ---
+
 # ----------------- Main interactive demo -----------------
 def main():
     print("=== Quantum Password Demo (educational, offline) ===")
@@ -221,10 +295,42 @@ def main():
             break
         print("Invalid choice; pick 1 or 2.")
     N = 2**nq
-    # Map first nq bits to target index
-    target_bits = pw['bits'][:nq]
-    target_index = int(''.join(str(b) for b in target_bits), 2)
-    print(f"Using first {nq} bits of the generated password as the hidden target index: {target_bits} -> {target_index}")
+
+    # Allow user to choose mapping to target index:
+    # - 'g': use first nq generated random bits (original behaviour)
+    # - 'c': enter a custom password string; map via SHA-256 -> integer -> index mod N (demo mapping)
+    # - 'i': enter index directly (0..N-1)
+    print()
+    print("Choose how to derive the hidden target index for Grover:")
+    print("  g - use generated bits (first {} bits)".format(nq))
+    print("  c - provide a custom password string (will be hashed -> index mod {})".format(N))
+    print("  i - enter target index directly (0..{})".format(N-1))
+    choice = input("Select (g/c/i) [g]: ").strip().lower() or "g"
+
+    if choice == 'i':
+        while True:
+            try:
+                target_index = int(input(f"Enter target index (0..{N-1}): ").strip())
+                if 0 <= target_index < N:
+                    break
+            except Exception:
+                pass
+            print("Invalid index.")
+        mapping_info = f"Direct index chosen: {target_index}"
+    elif choice == 'c':
+        custom = input("Enter custom password string (this will be hashed to an index): ")
+        # Map to index deterministically via SHA-256
+        digest = hashlib.sha256(custom.encode('utf-8')).digest()
+        int_val = int.from_bytes(digest, 'big')
+        target_index = int_val % N
+        mapping_info = f"Custom password hashed to index {target_index} (mod {N}). Note: Grover searches the small index space, not the original string."
+    else:
+        # default/generate: map first nq bits of generated password
+        target_bits = pw['bits'][:nq]
+        target_index = int(''.join(str(b) for b in target_bits), 2)
+        mapping_info = f"Using first {nq} generated bits {target_bits} -> index {target_index}"
+
+    print(mapping_info)
     print("Running Grover (simulated locally) to find the index...")
 
     counts, iterations, qc = grover_search_demo(n_qubits=nq, target_index=target_index, shots=2048)
@@ -239,6 +345,96 @@ def main():
             print("Result did not select target with highest probability (try rerunning or change shots).")
     except Exception:
         pass
+
+    # --- New: Grover key-recovery toy demo (1-2 qubits) ---
+    if input("\nRun toy Grover key-recovery demo on a tiny XOR cipher? (y/N): ").strip().lower().startswith('y'):
+        # choose small n for keyspace
+        while True:
+            try:
+                kn = int(input("Choose key qubits for toy Grover (1 or 2) [2]: ").strip() or "2")
+            except Exception:
+                kn = 2
+            if kn in (1,2):
+                break
+            print("Invalid choice; pick 1 or 2.")
+        K = 2**kn
+        # pick key: either use previously mapped target_index (if it fits) or random
+        use_prev = False
+        if 0 <= target_index < K:
+            use_prev = input(f"Use previously chosen target index {target_index} as key? (y/N): ").strip().lower().startswith('y')
+        if use_prev:
+            toy_key = target_index
+        else:
+            toy_key = random.randrange(0, K)
+        print(f"Toy secret key (int in [0..{K-1}]): {toy_key}")
+
+        # plaintext to encrypt (short)
+        pt = input("Enter short plaintext to encrypt (default 'HELLO'): ").strip() or "HELLO"
+        ct_b64 = toy_xor_encrypt_int_key(toy_key, pt)
+        print("Toy ciphertext (base64):", ct_b64)
+
+        # Run Grover to recover the key (oracle = target key)
+        print("Running Grover to recover toy key...")
+        counts_k, iters_k, qc_k = grover_search_demo(n_qubits=kn, target_index=toy_key, shots=2048)
+        recovered = max(counts_k.items(), key=lambda kv: kv[1])[0]
+        rec_int = int(recovered, 2)
+        print(f"Grover measurement counts: {counts_k}")
+        print(f"Recovered key (most-measured): {recovered} -> int {rec_int}")
+        if rec_int == toy_key:
+            print("Grover recovered the correct key.")
+        else:
+            print("Grover did not recover the correct key in this run (try increasing shots or rerunning).")
+
+        # Decrypt with recovered key and show result
+        try:
+            dec = toy_xor_decrypt_int_key(rec_int, ct_b64)
+            print("Decryption with recovered key ->", dec)
+        except Exception as e:
+            print("Decryption failed:", e)
+    # --- end Grover key-recovery demo ---
+
+    # --- New: interactive encrypt / decrypt using the selected key ---
+    print()
+    use_key_from = "bits"  # by default use generated bits key
+    if choice == 'c':
+        # user provided custom password string earlier; offer choice to use that string as key
+        use_key_from = input("Use (b)its-derived key or (p)assword-string key for encrypt/decrypt? [b]: ").strip().lower() or "b"
+        if use_key_from.startswith('p'):
+            key_mode = 'password'
+        else:
+            key_mode = 'bits'
+    else:
+        key_mode = 'bits'
+
+    last_cipher = None
+    if input("Encrypt a message with the chosen key? (y/N): ").strip().lower().startswith('y'):
+        msg = input("Enter plaintext message: ")
+        if key_mode == 'password' and choice == 'c':
+            ct = encrypt_with_password_str(custom, msg)
+        else:
+            # use generated bits as key
+            key_bits = pw['bits'][:max(len(pw['bits']), 8)]  # ensure at least some bits
+            ct = encrypt_with_bits(key_bits, msg)
+        last_cipher = ct
+        print("Ciphertext (base64):", ct)
+
+    if input("Decrypt a ciphertext now? (y/N): ").strip().lower().startswith('y'):
+        inp = input("Paste ciphertext (base64) [or press Enter to use the last ciphertext]: ").strip()
+        if inp == "" and last_cipher is not None:
+            inp = last_cipher
+        if not inp:
+            print("No ciphertext provided.")
+        else:
+            try:
+                if key_mode == 'password' and choice == 'c':
+                    pt = decrypt_with_password_str(custom, inp)
+                else:
+                    key_bits = pw['bits'][:max(len(pw['bits']), 8)]
+                    pt = decrypt_with_bits(key_bits, inp)
+                print("Decrypted plaintext:", pt)
+            except Exception as e:
+                print("Decryption failed:", str(e))
+    # --- end encrypt/decrypt demo ---
 
     # Optional: show circuit (text)
     print("\nGrover circuit (text):")
