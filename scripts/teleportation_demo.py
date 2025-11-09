@@ -1,36 +1,54 @@
+# teleportation_demo.py
 from qiskit import QuantumCircuit
-from qiskit_aer import AerSimulator
-from qiskit.quantum_info import Statevector
+from qiskit.quantum_info import Statevector, DensityMatrix, partial_trace
+import numpy as np
 
-# Create a standard 3-qubit teleportation circuit
-qc = QuantumCircuit(3, 2)
-# Prepare arbitrary state on qubit 0 (here |+>)
-qc.h(0)
-# Create Bell pair between qubit1 and qubit2
-qc.h(1)
-qc.cx(1, 2)
-# Bell measurement between qubit0 and qubit1
-qc.cx(0, 1)
-qc.h(0)
-qc.measure(0, 0)
-qc.measure(1, 1)
-# Conditional corrections
-qc.cx(1, 2)
-qc.cz(0, 2)  # Note: after measurement you would apply conditionals; for simulator demonstration we apply them using classical feedback not shown
+def teleportation(alpha=1.0, beta=0.0):
+    # normalize
+    norm = np.sqrt(abs(alpha)**2 + abs(beta)**2)
+    alpha = alpha / norm
+    beta = beta / norm
 
-# For demonstration run the circuit up to measurements to see measurement outcomes, then show final statevector separately
-# Run full circuit (without conditional corrections) to inspect measurement outcomes
-result = sim.run(qc, shots=1024).result()
-print("Teleportation measurement counts (Alice outcomes):", result.get_counts())
+    # Build circuit that prepares the initial state on q0 and an entangled pair on q1-q2
+    c = QuantumCircuit(3)
+    c.initialize([alpha, beta], 0)
+    c.h(1); c.cx(1, 2)
+    # Alice's Bell-basis operations (before measurement)
+    c.cx(0, 1); c.h(0)
 
-# Show final state on qubit 2 by constructing the standard teleportation circuit with proper conditionals via statevector approach:
-# Build teleportation (state preparation + Bell + measurement + classical corrections applied logically)
-tele_qc = QuantumCircuit(3)
-tele_qc.h(0)
-tele_qc.h(1)
-tele_qc.cx(1, 2)
-tele_qc.cx(0, 1)
-tele_qc.h(0)
-# Instead of real conditional gates, apply corrections to qubit 2 depending on measurement outcomes isn't trivial in statevector; show prepared & expected final state instead:
-final_sv = Statevector.from_instruction(QuantumCircuit(1).h(0))
-print("Expected teleported statevector on target qubit (|+>):", final_sv.data)
+    # Compute full statevector and density matrix before measurement
+    full_sv = Statevector.from_instruction(c)
+    # Use DensityMatrix(full_sv) for compatibility across qiskit versions
+    dm = DensityMatrix(full_sv).data  # numpy array (8x8)
+
+    results = {}
+    for outcome in ['00', '01', '10', '11']:
+        # projector on qubits 0 and 1 for the given outcome
+        idx = int(outcome, 2)
+        e = np.zeros(4, dtype=complex); e[idx] = 1.0
+        proj2 = np.outer(e, e.conj())        # 4x4 projector for qubits 0&1
+        I = np.eye(2, dtype=complex)         # identity for qubit 2
+        proj_full = np.kron(proj2, I)        # 8x8 projector
+
+        # apply projector, renormalize
+        dm_proj = proj_full @ dm @ proj_full
+        tr = np.trace(dm_proj)
+        if abs(tr) < 1e-12:
+            results[outcome] = None
+            continue
+        dm_proj = dm_proj / tr
+
+        # convert to qiskit DensityMatrix and partial-trace out qubits 0 and 1
+        dm_q = DensityMatrix(dm_proj)
+        reduced = partial_trace(dm_q, [0, 1])  # reduced state of qubit 2
+        results[outcome] = reduced
+
+    # Print results
+    print("Teleportation results (reduced state of Bob's qubit for each Alice outcome):")
+    for k, v in results.items():
+        print(k, v)
+    print("\nDone. Note: this demo uses statevector/density-matrix math to show teleportation effect.")
+
+if __name__ == "__main__":
+    # Example teleport of |+> state
+    teleportation(alpha=1.0, beta=1.0)
